@@ -1,4 +1,19 @@
-#ifndef SERVER_H
-#define SERVER_H
+#pragma once
 
-#endif // SERVER_H
+#include <QtNetwork/QtNetwork>
+
+class Server : QObject
+{
+    Q_OBJECT
+private:
+    QTcpServer *tcpServer;
+
+private slots:
+    void newConnection();
+    void readyRead();
+    void disconnected();
+
+public:
+    Server(int port);
+    ~Server();
+};
