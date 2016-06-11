@@ -2,7 +2,9 @@
 
 #include "user.h"
 
-class Room : QObject
+class User;
+
+class Room : public QObject
 {
     Q_OBJECT
 public:

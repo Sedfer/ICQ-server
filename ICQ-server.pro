@@ -12,9 +12,11 @@ TEMPLATE = app
 SOURCES += main.cpp \
     server.cpp \
     user.cpp \
-    room.cpp
+    room.cpp \
+    connection.cpp
 
 HEADERS += \
     server.h \
     user.h \
-    room.h
+    room.h \
+    connection.h

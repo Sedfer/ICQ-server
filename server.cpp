@@ -4,7 +4,7 @@
 
 using namespace std;
 
-Server::Server(int port): userID(0), roomID(0)
+Server::Server(int port): roomID(0)
 {
     tcpServer = new QTcpServer();
     tcpServer->listen(QHostAddress::Any, port);
@@ -16,13 +16,19 @@ Server::Server(int port): userID(0), roomID(0)
 Server::~Server()
 {
     delete userList;
+    delete roomList;
 }
 
 void Server::newConnection()
 {
     QTcpSocket *socket = tcpServer->nextPendingConnection();
-    connect(socket, SIGNAL(disconnected()), SLOT(disconnected()));
-    connect(socket, SIGNAL(readyRead()), SLOT(readyRead()));
+    Connection *connection = new Connection(socket);
+
+    connect(socket, SIGNAL(disconnected()), connection, SIGNAL(disconnected()));
+    connect(connection, SIGNAL(disconnected()), SLOT(disconnected()));
+
+    connect(socket, SIGNAL(readyRead()), connection, SIGNAL(readyRead()));
+    connect(connection, SIGNAL(readyRead()), SLOT(readyRead()));
 
     cerr << QDate::currentDate().toString().toStdString() << " "
          << QTime::currentTime().toString().toStdString() << " "
@@ -33,35 +39,35 @@ void Server::newConnection()
 
 void Server::readyRead()
 {
-    QTcpSocket *socket = static_cast<QTcpSocket*>(sender());
+    Connection *connection = static_cast<Connection*>(sender());
 
     while(true){
-        if(!socket || socket->bytesAvailable() <= 0)
+        if(!(connection->socket) || connection->socket->bytesAvailable() <= 0)
             break;
 
-        QByteArray data = socket->readLine(1024);
-        respond(QString(data), socket);
+        QByteArray data = connection->socket->read(1024);
+        respond(QString(data), connection);
     }
 }
 
 void Server::disconnected()
 {
-    QTcpSocket *socket = static_cast<QTcpSocket*>(sender());
+    Connection *connection = static_cast<Connection*>(sender());
 
     cerr << QDate::currentDate().toString().toStdString() << " "
          << QTime::currentTime().toString().toStdString() << " "
          << "Disconnected "
-         << socket->peerAddress().toString().toStdString() << ":"
-         << socket->peerPort() << endl;
+         << connection->socket->peerAddress().toString().toStdString() << ":"
+         << connection->socket->peerPort() << endl;
 
-    disconnect(socket);
+    logoff(connection);
 }
 
-void Server::respond(const QString &request, QTcpSocket *socket)
+void Server::respond(const QString &request, Connection *connection)
 {
     cerr << QDate::currentDate().toString().toStdString() << " "
          << QTime::currentTime().toString().toStdString() << " "
-         << socket->peerPort() << ":" << request.toStdString() << endl;
+         << connection->socket->peerPort() << ":" << request.toStdString() << endl;
 
     stringstream in(request.toStdString());
     string action;
@@ -71,13 +77,13 @@ void Server::respond(const QString &request, QTcpSocket *socket)
     {
         string name, password;
         in >> name >> password;
-        login(QString(name.c_str()), QString(password.c_str()), socket);
+        login(QString(name.c_str()), QString(password.c_str()), connection);
         return;
     }
 
     if(!action.compare("logoff"))
     {
-        socket->disconnectFromHost();
+        connection->socket->disconnectFromHost();
         return;
     }
 
@@ -98,85 +104,79 @@ void Server::respond(const QString &request, QTcpSocket *socket)
 
 void Server::registerUser(const QString &name, const QString &password)
 {
-    User *user = new User(userID++, name, password);
+    if(!name.compare("") || !password.compare(""))
+    {
+        cerr << "Registration error: empty name or password" << endl;
+        return;
+    }
+
+    User *user = findUser(name);
+    if(user != nullptr)
+    {
+        cerr << "User already exists: " << user->name.toStdString() << ":"
+             << user->password.toStdString() << endl;
+        return;
+    }
+
+    user = new User(name, password);
     userList->append(user);
 
-    cerr << "User registered: " << user->id << ":"
-         << user->name.toStdString() << ":"
+    cerr << "User registered: " << user->name.toStdString() << ":"
          << user->password.toStdString() << endl;
 }
 
 void Server::login(const QString &name, const QString &password,
-                   QTcpSocket *socket)
+                   Connection *connection)
 {
-    bool valid = false;
-    User *userToLogin = nullptr;
-
-    for(auto user = userList->begin(); user != userList->end(); ++user)
+    if(connection->user != nullptr)
     {
-        // if already logged in
-        if(socket == (*user)->socket){
-            valid = false;
-            break;
-        }
-
-        if(name.compare((*user)->name))
-            continue;
-
-        if(password.compare((*user)->password)){
-            valid = false;
-            break;
-        }
-
-        if((*user)->socket != nullptr){
-            valid = false;
-            break;
-        }
-
-        // Success
-        valid = true;
-        userToLogin = *user;
+        cerr << "Already logged in as: "
+             << connection->user->name.toStdString() << endl;
+        return;
     }
 
-    if(valid)
+    User *user = findUser(name);
+    if(user == nullptr)
     {
-        userToLogin->socket = socket;
-
-        cerr << "Login: " << userToLogin->id << ":"
-             << userToLogin->name.toStdString() << endl;
+        cerr << "User does not exsist: " << name.toStdString() << endl;
+        return;
     }
-    else
+
+    if(!checkPassword(user, password))
     {
-        cerr << "Login error: " << name.toStdString() << ":"
+        cerr << "Incorrect password: " << name.toStdString() << ":"
              << password.toStdString() << endl;
-    }
-}
-
-void Server::disconnect(QTcpSocket *socket)
-{
-    if(socket == nullptr)
         return;
+    }
 
-    for(auto user = userList->begin(); user != userList->end(); ++user)
+    if(user->socket != nullptr)
     {
-        if(socket != (*user)->socket)
-            continue;
-
-        disconnect(*user);
-        (*user)->socket = nullptr;
-
-        cerr << "Logged off: " << ((*user)->id) << ":"
-             << (*user)->name.toStdString() << ":"
-             << (*user)->password.toStdString()
-             << ":" << (*user)->socket << endl;
-
+        cerr << "User already logged in: " << name.toStdString() << endl;
         return;
     }
+
+    // Connect socket with user
+    user->socket = connection->socket;
+    connection->user = user;
+
+    cerr << "Login: " << user->name.toStdString() << endl;
 }
 
-void Server::disconnect(User *user)
+void Server::logoff(Connection *connection)
 {
-    // delete user from each room
+    if(connection == nullptr || connection->user == nullptr)
+        return;
+
+    logoff(connection->user);
+    connection->user->socket = nullptr;
+
+    cerr << "Logged off: " << connection->user->name.toStdString() << endl;
+}
+
+// delete user from each room
+void Server::logoff(User *user)
+{
+
 }
 
 void Server::showUserList()
@@ -184,9 +184,26 @@ void Server::showUserList()
     cerr << "User list:\n";
     for(auto user = userList->begin(); user != userList->end(); ++user)
     {
-        cerr << "[" << ((*user)->id) << ":"
-             << (*user)->name.toStdString() << ":"
+        cerr << "[" << (*user)->name.toStdString() << ":"
              << (*user)->password.toStdString()
              << ":" << (*user)->socket << "]" << endl;
     }
+}
+
+User* Server::findUser(const QString &name)
+{
+    auto found = find_if(userList->begin(), userList->end(),
+                         [&name](User *user){
+        return !(user->name.compare(name));
+    });
+
+    if(found == userList->end())
+        return nullptr;
+    else
+        return *found;
+}
+
+bool Server::checkPassword(User *user, const QString &password)
+{
+    return !(password.compare(user->password));
 }

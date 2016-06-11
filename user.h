@@ -1,18 +1,21 @@
 #pragma once
 
 #include <QtNetwork>
+#include "room.h"
 
-class User : QObject
+class Room;
+
+class User : public QObject
 {
     Q_OBJECT
 public:
-    int id;
     QString name;
     QString password;
+    QList<Room*> roomList;
     QTcpSocket *socket;
 
     User();
-    User(int _id, const QString &_name, const QString &_password,
+    User(const QString &_name, const QString &_password,
          QTcpSocket *_socket = nullptr);
     ~User();
 };
