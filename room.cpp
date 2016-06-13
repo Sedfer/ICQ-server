@@ -1,7 +1,7 @@
 #include "room.h"
 
 
-Room::Room() : userList()
+Room::Room(int _id) : id(_id), userList()
 {
 
 }

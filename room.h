@@ -11,6 +11,6 @@ public:
     int id;
     QList<User*> userList;
 
-    Room();
+    Room(int _id);
     ~Room();
 };
