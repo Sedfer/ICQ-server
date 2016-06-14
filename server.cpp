@@ -5,15 +5,16 @@
 
 using namespace std;
 
-Server::Server(int port): roomID(0)
+Server::Server(int port): roomID(1)
 {
     tcpServer = new QTcpServer();
     tcpServer->listen(QHostAddress::Any, port);
     connect(tcpServer, SIGNAL(newConnection()), SLOT(newConnection()));
 
-
     userList = new QList<User*>();
     roomList = new QList<Room*>();
+
+    srand(time(0));
 }
 
 Server::~Server()
@@ -281,19 +282,8 @@ void Server::addRoom(Connection *connection)
         return;
     }
 
-    bool uniqueRoom = false;
-    int randomRoomID;
-    while(!uniqueRoom)
-    {
-        uniqueRoom = true;
-        srand( time( 0 ) );
-        randomRoomID = 1 + rand() % 1000;
-        for (int i = 0; i < roomList->size(); ++i)
-             if(roomList->at(i)->id == randomRoomID)
-                 uniqueRoom = false;
-    }
-
-    Room *room = new Room(randomRoomID);
+    int uniqueRoomID = (roomID++)*10000 + rand()%10000;
+    Room *room = new Room(uniqueRoomID);
     roomList->append(room);
 
     sendOK(connection->socket);
