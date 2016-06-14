@@ -11,6 +11,7 @@ Server::Server(int port): roomID(0)
     tcpServer->listen(QHostAddress::Any, port);
     connect(tcpServer, SIGNAL(newConnection()), SLOT(newConnection()));
 
+
     userList = new QList<User*>();
     roomList = new QList<Room*>();
 }
@@ -476,7 +477,7 @@ void Server::send(Connection *connection, int id)
 
     for(auto i = room->userList.begin(); i != room->userList.end(); ++i)
     {
-        sendText((*i)->name, (*i)->socket, room, text, connection->user);
+        sendText((*i)->socket, room, text, connection->user, *i);
     }
 }
 
@@ -541,22 +542,29 @@ void Server::sendRemoveUser(QTcpSocket *socket, Room *room, User *user)
     sendData(socket, QByteArray(str.c_str()));
 }
 
-void Server::sendText(const QString &name, QTcpSocket *socket, Room *room,
-                      const QString &text, User *from)
+void Server::sendText(QTcpSocket *socket, Room *room,const QString &text,
+                      User *from, User *to)
 {
-    string fontStart, fontEnd = "</b></font>";
-    if(from->name == name)
-        fontStart = "<b><font color=\"green\">";
+    string nameAndTime = from->name.toStdString() + " [" +
+            QTime::currentTime().toString().toStdString() + "]:";
+
+    if(from == to)
+        nameAndTime = colorText(nameAndTime, "green");
 
     else
-        fontStart = "<b><font color=\"blue\">";
+        nameAndTime = colorText(nameAndTime, "blue");
 
     string str = "send " + to_string(room->id) + "\n" +
-            fontStart + from->name.toStdString() + " [" +
-            QTime::currentTime().toString().toStdString() +
-            "]:" + fontEnd+ "\n" + text.toStdString() + "\xFF\n";
+            nameAndTime + "\n" + text.toStdString() + "\xFF\n";
 
     sendData(socket, QByteArray(str.c_str()));
+}
+
+string Server::colorText(const string &text, const string &color)
+{
+    string coloredText = "<b><font color=\"" + color + "\">"
+                        + text + "</font></b>";
+    return coloredText;
 }
 
 User* Server::findUser(const QString &name, Room *room)

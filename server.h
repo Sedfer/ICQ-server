@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtNetwork>
+#include <string>
 #include "user.h"
 #include "room.h"
 #include "connection.h"
@@ -53,8 +54,9 @@ public:
     void sendAddUser(QTcpSocket *socket, Room *room, User *user);
     void sendRemoveRoom(QTcpSocket *socket, Room *room);
     void sendRemoveUser(QTcpSocket *socket, Room *room, User *user);
-    void sendText(const QString &name, QTcpSocket *socket, Room *room, const QString &text,
-                  User *from = nullptr);
+    void sendText(QTcpSocket *socket, Room *room, const QString &text,
+                  User *from = nullptr, User *to = nullptr);
+    std::string colorText(const std::string &text, const std::string &color);
 
     User* findUser(const QString &name, Room *room = nullptr);
     Room* findRoom(int id, User *user = nullptr);
