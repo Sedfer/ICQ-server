@@ -462,7 +462,7 @@ void Server::send(Connection *connection, int id)
         {
             break;
         }
-        text += QString(line);
+        text += "<br>" + QString(line);
     }
 
     Room *room = findRoom(id, connection->user);
