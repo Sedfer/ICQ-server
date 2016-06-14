@@ -53,7 +53,7 @@ public:
     void sendAddUser(QTcpSocket *socket, Room *room, User *user);
     void sendRemoveRoom(QTcpSocket *socket, Room *room);
     void sendRemoveUser(QTcpSocket *socket, Room *room, User *user);
-    void sendText(QTcpSocket *socket, Room *room, const QString &text,
+    void sendText(const QString &name, QTcpSocket *socket, Room *room, const QString &text,
                   User *from = nullptr);
 
     User* findUser(const QString &name, Room *room = nullptr);

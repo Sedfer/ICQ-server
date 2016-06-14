@@ -1,6 +1,7 @@
 #include "server.h"
 #include <iostream>
 #include <sstream>
+#include <ctime>
 
 using namespace std;
 
@@ -279,7 +280,19 @@ void Server::addRoom(Connection *connection)
         return;
     }
 
-    Room *room = new Room(roomID++);
+    bool uniqueRoom = false;
+    int randomRoomID;
+    while(!uniqueRoom)
+    {
+        uniqueRoom = true;
+        srand( time( 0 ) );
+        randomRoomID = 1 + rand() % 1000;
+        for (int i = 0; i < roomList->size(); ++i)
+             if(roomList->at(i)->id == randomRoomID)
+                 uniqueRoom = false;
+    }
+
+    Room *room = new Room(randomRoomID);
     roomList->append(room);
 
     sendOK(connection->socket);
@@ -463,7 +476,7 @@ void Server::send(Connection *connection, int id)
 
     for(auto i = room->userList.begin(); i != room->userList.end(); ++i)
     {
-        sendText((*i)->socket, room, text, connection->user);
+        sendText((*i)->name, (*i)->socket, room, text, connection->user);
     }
 }
 
@@ -528,13 +541,20 @@ void Server::sendRemoveUser(QTcpSocket *socket, Room *room, User *user)
     sendData(socket, QByteArray(str.c_str()));
 }
 
-void Server::sendText(QTcpSocket *socket, Room *room,
+void Server::sendText(const QString &name, QTcpSocket *socket, Room *room,
                       const QString &text, User *from)
 {
+    string fontStart, fontEnd = "</b></font>";
+    if(from->name == name)
+        fontStart = "<b><font color=\"green\">";
+
+    else
+        fontStart = "<b><font color=\"blue\">";
+
     string str = "send " + to_string(room->id) + "\n" +
-            from->name.toStdString() + " [" +
+            fontStart + from->name.toStdString() + " [" +
             QTime::currentTime().toString().toStdString() +
-            "]:\n" + text.toStdString() + "\xFF\n";
+            "]:" + fontEnd+ "\n" + text.toStdString() + "\xFF\n";
 
     sendData(socket, QByteArray(str.c_str()));
 }
